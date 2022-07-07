@@ -43,7 +43,7 @@ Vec3f barycentric_coefficients(Vec3f points[3], Vec3f p)
     };
 }
 
-void fill_edges(int top, int bot, RTI *l1, RTI *l2, SDL_Renderer *rend)
+void fill_edges(int top, int bot, RTI *l1, RTI *l2, Vec3f pts[3], Vec3f texcoords[3], SDL_Texture *tex, SDL_Renderer *rend)
 {
     for (int y = top; y < bot; ++y)
     {
@@ -60,7 +60,21 @@ void fill_edges(int top, int bot, RTI *l1, RTI *l2, SDL_Renderer *rend)
 
             if (i >= 800) break;
 
-            SDL_RenderDrawPoint(rend, i, y);
+            Vec3f p = { i, y, 0 };
+            Vec3f coeffs = barycentric_coefficients(pts, p);
+
+            Vec3f uv = vec_addv(vec_addv(vec_mulf(texcoords[2], coeffs.z), vec_mulf(texcoords[1], coeffs.y)), vec_mulf(texcoords[0], coeffs.x));
+            /* int ix = uv.x * 100; */
+            /* int iy = uv.y * 100; */
+
+            /* if (ix % 5 == 0) */
+            /*     SDL_SetRenderDrawColor(rend, 0, 0, 0, 255); */
+            /* else */
+            /*     SDL_SetRenderDrawColor(rend, 255, 255, 255, 255); */
+
+            SDL_Rect src = { uv.x * 100.f, uv.y * 100.f, 1, 1 };
+            SDL_Rect dst = { i, y, 1, 1 };
+            SDL_RenderCopy(rend, tex, &src, &dst);
         }
 
         l1->x += 1.f / l1->slope;
@@ -68,7 +82,7 @@ void fill_edges(int top, int bot, RTI *l1, RTI *l2, SDL_Renderer *rend)
     }
 }
 
-void draw_tri(SDL_Renderer *rend, SDL_Point p[3])
+void draw_tri(SDL_Renderer *rend, SDL_Point p[3], Vec3f texcoords[3], SDL_Texture *tex)
 {
     SDL_Point p0 = p[0], p1 = p[1], p2 = p[2];
 
@@ -85,8 +99,14 @@ void draw_tri(SDL_Renderer *rend, SDL_Point p[3])
     RTI r01 = { p0.x, (float)(p1.y - p0.y) / (p1.x - p0.x) };
     RTI r12 = { p1.x, (float)(p2.y - p1.y) / (p2.x - p1.x) };
 
-    fill_edges(p0.y, p1.y, &r02, &r01, rend);
-    fill_edges(p1.y, p2.y, &r02, &r12, rend);
+    Vec3f pts[3] = {
+        (Vec3f){ p0.x, p0.y, 0 },
+        (Vec3f){ p1.x, p1.y, 0 },
+        (Vec3f){ p2.x, p2.y, 0 }
+    };
+
+    fill_edges(p0.y, p1.y, &r02, &r01, pts, texcoords, tex, rend);
+    fill_edges(p1.y, p2.y, &r02, &r12, pts, texcoords, tex, rend);
 }
 
 void mainloop(SDL_Window *win, SDL_Renderer *rend)
@@ -95,10 +115,30 @@ void mainloop(SDL_Window *win, SDL_Renderer *rend)
     SDL_Event evt;
 
     SDL_Point tri[3] = {
-        (SDL_Point){ 400, 300 },
+        (SDL_Point){ 300, 300 },
         (SDL_Point){ 300, 600 },
-        (SDL_Point){ 500, 400 }
+        (SDL_Point){ 500, 600 }
     };
+
+    Vec3f texcoords[3] = {
+        (Vec3f){ 0.f, 0.f, 0.f },
+        (Vec3f){ 0.f, 1.f, 0.f },
+        (Vec3f){ 1.f, 1.f, 0.f }
+    };
+
+    SDL_Point tri2[3] = {
+        (SDL_Point){ 400, 300 },
+        (SDL_Point){ 600, 300 },
+        (SDL_Point){ 600, 600 }
+    };
+
+    Vec3f texcoords2[3] = {
+        (Vec3f){ 0.f, 0.f, 0.f },
+        (Vec3f){ 1.f, 0.f, 0.f },
+        (Vec3f){ 1.f, 1.f, 0.f }
+    };
+
+    SDL_Texture *image = IMG_LoadTexture(rend, "image.png");
 
     while (running)
     {
@@ -114,7 +154,8 @@ void mainloop(SDL_Window *win, SDL_Renderer *rend)
 
         SDL_RenderClear(rend);
 
-        draw_tri(rend, tri);
+        draw_tri(rend, tri, texcoords, image);
+        draw_tri(rend, tri2, texcoords2, image);
 
         SDL_SetRenderDrawColor(rend, 0, 0, 0, 255);
         SDL_RenderPresent(rend);
