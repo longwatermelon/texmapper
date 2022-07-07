@@ -11,7 +11,7 @@
 
 typedef struct
 {
-    float x, z, sx, sz;
+    float x, slope;
 } RTI;
 
 Vec3f barycentric_coefficients(Vec3f points[3], Vec3f p)
@@ -43,6 +43,30 @@ Vec3f barycentric_coefficients(Vec3f points[3], Vec3f p)
     };
 }
 
+void fill_edges(int top, int bot, RTI *l1, RTI *l2, SDL_Renderer *rend)
+{
+    for (int y = top; y < bot; ++y)
+    {
+        int min = roundf(l1->x > l2->x ? l2->x : l1->x);
+        int max = roundf(l1->x < l2->x ? l2->x : l1->x);
+
+        for (int i = min; i < max; ++i)
+        {
+            if (i < 0)
+            {
+                i = 0;
+                continue;
+            }
+
+            if (i >= 800) break;
+
+            SDL_RenderDrawPoint(rend, i, y);
+        }
+
+        l1->x += 1.f / l1->slope;
+        l2->x += 1.f / l2->slope;
+    }
+}
 
 void draw_tri(SDL_Renderer *rend, SDL_Point p[3])
 {
@@ -53,9 +77,16 @@ void draw_tri(SDL_Renderer *rend, SDL_Point p[3])
     if (p1.y > p2.y) swapp(p1, p2);
 
     SDL_SetRenderDrawColor(rend, 255, 255, 255, 255);
-    SDL_RenderDrawLine(rend, p0.x, p0.y, p1.x, p1.y);
-    SDL_RenderDrawLine(rend, p1.x, p1.y, p2.x, p2.y);
-    SDL_RenderDrawLine(rend, p2.x, p2.y, p0.x, p0.y);
+    /* SDL_RenderDrawLine(rend, p0.x, p0.y, p1.x, p1.y); */
+    /* SDL_RenderDrawLine(rend, p1.x, p1.y, p2.x, p2.y); */
+    /* SDL_RenderDrawLine(rend, p2.x, p2.y, p0.x, p0.y); */
+
+    RTI r02 = { p0.x, (float)(p2.y - p0.y) / (p2.x - p0.x) };
+    RTI r01 = { p0.x, (float)(p1.y - p0.y) / (p1.x - p0.x) };
+    RTI r12 = { p1.x, (float)(p2.y - p1.y) / (p2.x - p1.x) };
+
+    fill_edges(p0.y, p1.y, &r02, &r01, rend);
+    fill_edges(p1.y, p2.y, &r02, &r12, rend);
 }
 
 void mainloop(SDL_Window *win, SDL_Renderer *rend)
